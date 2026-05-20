@@ -1,0 +1,22 @@
+CHECKLIST DEPLOY VERCEL
+
+1. Tạo Supabase project.
+2. Chạy supabase/schema.sql trong SQL Editor.
+3. Vào Supabase Authentication:
+   - Disable email confirmation nếu muốn test nhanh.
+   - Site URL local: http://localhost:3000
+   - Redirect URL local: http://localhost:3000/auth/callback
+4. Local:
+   npm install
+   cp .env.example .env.local
+   npm run dev
+5. Deploy Vercel:
+   npm i -g vercel
+   vercel
+6. Trên Vercel thêm Environment Variables:
+   NEXT_PUBLIC_SUPABASE_URL
+   NEXT_PUBLIC_SUPABASE_ANON_KEY
+   NEXT_PUBLIC_SITE_URL=https://ten-app.vercel.app
+7. Cập nhật Supabase Redirect URL:
+   https://ten-app.vercel.app/auth/callback
+8. Redeploy trên Vercel.
