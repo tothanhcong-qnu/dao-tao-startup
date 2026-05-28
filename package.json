@@ -1,1 +1,55 @@
-{"name":"dao-tao-startup","version":"1.0.0","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start","lint":"next lint"},"dependencies":{"@ducanh2912/next-pwa":"^10.2.7","@supabase/ssr":"^0.5.2","@supabase/supabase-js":"^2.46.1","lucide-react":"^0.468.0","next":"14.2.16","react":"18.3.1","react-dom":"18.3.1","recharts":"^2.13.3"},"devDependencies":{"@types/node":"^22.9.0","@types/react":"^18.3.12","@types/react-dom":"^18.3.1","autoprefixer":"^10.4.20","eslint":"^8.57.1","eslint-config-next":"14.2.16","postcss":"^8.4.49","tailwindcss":"^3.4.15","typescript":"^5.6.3"}}
+{
+  "name": "dao-tao-startup",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "electron": "electron .",
+    "pack": "next build && electron-builder --dir",
+    "dist": "next build && electron-builder"
+  },
+  "build": {
+    "appId": "com.daotaostartup.app",
+    "productName": "Dao Tao Startup",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "node_modules/**/*",
+      ".next/**/*",
+      "public/**/*"
+    ],
+    "win": {
+      "target": ["nsis", "portable"]
+    }
+  },
+  "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.7",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.46.1",
+    "lucide-react": "^0.468.0",
+    "next": "14.2.16",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "recharts": "^2.13.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.7",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.16",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3"
+  }
+}

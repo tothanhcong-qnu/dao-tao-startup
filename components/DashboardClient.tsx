@@ -6,7 +6,7 @@ import { Bell, Briefcase, Car, GraduationCap, LayoutDashboard, Link2, LogOut, Pl
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 
 type Course = { id: string; name: string; code: string | null; description: string | null; start_date: string | null; exam_date: string | null; theory_exam_date: string | null; practical_exam_date: string | null; completion_date: string | null; status: "active" | "draft" | "archived"; created_at: string };
-type Student = { id: string; full_name: string; email: string | null; phone: string | null; note: string | null; cccd: string | null; date_of_birth: string | null; address: string | null; created_at: string };
+type Student = { id: string; full_name: string; email: string | null; phone: string | null; note: string | null; cccd: string | null; date_of_birth: string | null; address: string | null; registered_license_class: string | null; existing_license_number: string | null; document_receiver: string | null; submission_date: string | null; created_at: string };
 type Enrollment = { id: string; course_id: string; student_id: string; status: "enrolled" | "completed" | "dropped"; theory_result: string | null; simulation_result: string | null; track_result: string | null; road_result: string | null; final_result: "Đạt" | "Trượt" | "Chưa thi"; enrolled_at: string; course?: Course; student?: Student };
 type Teacher = { id: string; code: string; full_name: string; cccd: string | null; phone: string | null; license_class: string | null; license_number: string | null; license_expiry: string | null; teaching_scope: string | null; date_of_birth: string | null; teacher_cert_number: string | null; professional_level: string | null; pedagogical_level: string | null; status: "active" | "inactive"; created_at: string };
 type Vehicle = { id: string; code: string; plate_number: string; vehicle_class: string | null; name: string | null; imei: string | null; serial_number: string | null; document_image_url: string | null; certificate_number: string | null; owner_name: string | null; practice_license_number: string | null; license_expiry: string | null; registry_expiry: string | null; insurance_expiry: string | null; contract_expiry: string | null; status: "active" | "inactive"; created_at: string };
@@ -39,7 +39,10 @@ export function DashboardClient({ userEmail, userId }: { userEmail: string; user
   const [searchTeacher, setSearchTeacher] = useState("");
   const [searchVehicle, setSearchVehicle] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-
+  const [showWaitingListModal, setShowWaitingListModal] = useState(false);
+  const [selectedWaitingStudents, setSelectedWaitingStudents] = useState<string[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -425,6 +428,33 @@ export function DashboardClient({ userEmail, userId }: { userEmail: string; user
     e.target.value = "";
   };
 
+  const handleEnrollFromWaitingList = async () => {
+    if (!selectedCourseId || selectedWaitingStudents.length === 0) return;
+    setActionLoading(true);
+    try {
+      const newEnrollments = selectedWaitingStudents.map(studentId => ({
+        owner_id: userId,
+        course_id: selectedCourseId,
+        student_id: studentId,
+        status: 'enrolled',
+        final_result: 'Chưa thi'
+      }));
+
+      const { data, error } = await supabase.from('enrollments').insert(newEnrollments).select('*, course:courses(*), student:students(*)');
+      if (error) throw error;
+      if (data) {
+        setEnrollments([...data, ...enrollments]);
+        showToast(`Đã thêm ${data.length} học viên từ danh sách chờ vào lớp.`);
+        setShowWaitingListModal(false);
+        setSelectedWaitingStudents([]);
+      }
+    } catch (error: any) {
+      showToast("Lỗi thêm học viên: " + error.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const downloadCourseStudentTemplate = () => {
     const header = "Họ Tên,Ngày Sinh,CCCD,Nơi Cư Trú,Điện Thoại,Ghi Chú\n";
     const example = "Nguyễn Văn C,1995-05-20,012345678912,Hà Nội,0987654321,Đã nộp đủ hồ sơ\n";
@@ -584,12 +614,41 @@ export function DashboardClient({ userEmail, userId }: { userEmail: string; user
           <h2 className="text-xl font-bold text-slate-800">{activeTabName}</h2>
           <p className="text-sm text-slate-500 mt-0.5">Trường Cao đẳng Kon Tum</p>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="text-slate-400 hover:text-slate-600 relative">
+        <div className="flex items-center gap-4 relative">
+          <button onClick={() => setShowNotifications(!showNotifications)} className="text-slate-400 hover:text-slate-600 relative">
             <Bell size={20} />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            {reminders.length > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
           </button>
-          <button className="text-slate-400 hover:text-slate-600"><Settings size={20} /></button>
+          
+          {showNotifications && (
+            <div className="absolute top-10 right-8 w-80 bg-white border border-slate-100 shadow-xl rounded-2xl z-50 p-4">
+              <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Bell size={16}/> Thông báo ({reminders.length})</h3>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {reminders.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-4">Không có thông báo mới</p>
+                ) : (
+                  reminders.map((r, i) => (
+                    <div key={i} className={`p-2 rounded-xl text-xs ${r.type === 'danger' ? 'bg-red-50 text-red-700' : r.type === 'warning' ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'}`}>
+                      <p className="font-bold">{r.title}</p>
+                      <p className="mt-0.5 opacity-80">{r.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          <button onClick={() => setShowSettingsDropdown(!showSettingsDropdown)} className="text-slate-400 hover:text-slate-600"><Settings size={20} /></button>
+          
+          {showSettingsDropdown && (
+            <div className="absolute top-10 right-0 w-48 bg-white border border-slate-100 shadow-xl rounded-2xl z-50 py-2">
+              <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Cài đặt</div>
+              <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Tài khoản của tôi</button>
+              <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Cấu hình hệ thống</button>
+              <div className="border-t border-slate-100 my-1"></div>
+              <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Đăng xuất</button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -815,6 +874,9 @@ export function DashboardClient({ userEmail, userId }: { userEmail: string; user
                       </div>
                       <div className="flex items-center gap-4">
                         <button onClick={downloadCourseStudentTemplate} className="text-blue-600 hover:text-blue-700 font-semibold text-sm underline">Tải file mẫu (CSV)</button>
+                        <button onClick={() => setShowWaitingListModal(true)} className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl font-medium cursor-pointer hover:bg-indigo-100 transition-colors inline-flex items-center gap-2">
+                          <Users size={16}/> Thêm từ DS chờ
+                        </button>
                         <label className="bg-slate-900 text-white px-4 py-2 rounded-xl font-medium cursor-pointer hover:bg-slate-800 transition-colors inline-flex items-center gap-2 whitespace-nowrap">
                           <Upload size={16}/> Nhập file CSV vào lớp
                           <input type="file" accept=".csv" className="hidden" onChange={handleImportStudentsForCourse} />
@@ -844,12 +906,44 @@ export function DashboardClient({ userEmail, userId }: { userEmail: string; user
               <Field label="Nơi cư trú"><input className="input" value={studentForm.address || ""} onChange={e => setStudentForm({...studentForm, address: e.target.value})} /></Field>
               <Field label="Điện thoại"><input className="input" value={studentForm.phone || ""} onChange={e => setStudentForm({...studentForm, phone: e.target.value})} /></Field>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Hạng đăng ký">
+                <select className="input" value={studentForm.registered_license_class || ""} onChange={e => setStudentForm({...studentForm, registered_license_class: e.target.value})}>
+                  <option value="">-- Chọn hạng --</option>
+                  <option value="Hạng B số tự động">Hạng B số tự động</option>
+                  <option value="Hạng B số cơ khí">Hạng B số cơ khí</option>
+                  <option value="Hạng C1">Hạng C1</option>
+                </select>
+              </Field>
+              <Field label="Số GPLX đã có"><input className="input" placeholder="Nếu có" value={studentForm.existing_license_number || ""} onChange={e => setStudentForm({...studentForm, existing_license_number: e.target.value})} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Người nhận hồ sơ"><input className="input" value={studentForm.document_receiver || ""} onChange={e => setStudentForm({...studentForm, document_receiver: e.target.value})} /></Field>
+              <Field label="Ngày nộp hồ sơ"><input type="date" className="input" value={studentForm.submission_date || ""} onChange={e => setStudentForm({...studentForm, submission_date: e.target.value})} /></Field>
+            </div>
             <Field label="Ghi chú"><textarea className="input min-h-[80px]" value={studentForm.note || ""} onChange={e => setStudentForm({...studentForm, note: e.target.value})} /></Field>
             <button disabled={actionLoading} type="submit" className="w-full mt-6 bg-slate-900 text-white font-medium py-2.5 rounded-xl flex justify-center gap-2">{editingStudent ? "Lưu thay đổi" : <><Plus size={16}/> Thêm mới</>}</button>
           </form>
-          <DataTable title="Danh sách Học viên" headers={["Họ tên", "Ngày sinh", "Số CCCD", "Nơi cư trú", "Điện thoại", "Thao tác"]} 
-            rows={students.map(s => [ <span key="1" className="font-bold">{s.full_name}</span>, formatDate(s.date_of_birth), <span key="2" className="text-indigo-600 font-semibold">{s.cccd}</span>, s.address||"—", s.phone||"—", <div key="actions" className="flex gap-2"><button onClick={() => {setEditingStudent(s);setStudentForm(s);}} className="text-blue-600"><Pencil size={16}/></button><button onClick={() => remove("students", s.id)} className="text-red-600"><Trash2 size={16}/></button></div> ])} 
-          />
+          <div className="space-y-4">
+            <DataTable title="Danh sách chờ xếp lớp" headers={["Họ tên", "Ngày nộp", "Hạng ĐK", "Số điện thoại", "Thao tác"]} 
+              rows={students
+                .filter(s => !enrollments.some(e => e.student_id === s.id))
+                .sort((a, b) => new Date(a.submission_date || a.created_at).getTime() - new Date(b.submission_date || b.created_at).getTime())
+                .map(s => [ 
+                  <div key="1">
+                    <div className="font-bold">{s.full_name}</div>
+                    <div className="text-xs text-slate-500">{s.cccd}</div>
+                  </div>, 
+                  formatDate(s.submission_date || s.created_at), 
+                  <span key="3" className="font-medium text-blue-600">{s.registered_license_class || "—"}</span>, 
+                  s.phone||"—", 
+                  <div key="actions" className="flex gap-2">
+                    <button onClick={() => {setEditingStudent(s);setStudentForm(s);}} className="text-blue-600"><Pencil size={16}/></button>
+                    <button onClick={() => remove("students", s.id)} className="text-red-600"><Trash2 size={16}/></button>
+                  </div> 
+                ])} 
+            />
+          </div>
         </section>}
 
         {/* ENROLLMENTS / EXAM RESULTS TAB */}
@@ -924,6 +1018,60 @@ export function DashboardClient({ userEmail, userId }: { userEmail: string; user
         </section>}
 
       </div>
+      
+      {/* WAITING LIST MODAL */}
+      {showWaitingListModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold">Chọn Học viên từ Danh sách chờ</h3>
+              <button onClick={() => setShowWaitingListModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {students.filter(s => !enrollments.some(e => e.student_id === s.id)).length === 0 ? (
+                <div className="text-center py-10 text-slate-500">Không có học viên nào trong danh sách chờ.</div>
+              ) : (
+                <div className="space-y-2">
+                  {students
+                    .filter(s => !enrollments.some(e => e.student_id === s.id))
+                    .sort((a, b) => new Date(a.submission_date || a.created_at).getTime() - new Date(b.submission_date || b.created_at).getTime())
+                    .map(s => (
+                      <label key={s.id} className="flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox" 
+                          className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                          checked={selectedWaitingStudents.includes(s.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedWaitingStudents(prev => [...prev, s.id]);
+                            else setSelectedWaitingStudents(prev => prev.filter(id => id !== s.id));
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="font-bold">{s.full_name}</div>
+                          <div className="text-sm text-slate-500">Hạng: <span className="font-semibold text-blue-600">{s.registered_license_class || "Chưa ĐK"}</span> • CCCD: {s.cccd} • Nộp: {formatDate(s.submission_date || s.created_at)}</div>
+                        </div>
+                      </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div className="text-sm font-medium text-slate-600">Đã chọn: <span className="font-bold text-slate-900">{selectedWaitingStudents.length}</span> học viên</div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowWaitingListModal(false)} className="px-5 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-200 transition-colors">Hủy</button>
+                <button 
+                  onClick={handleEnrollFromWaitingList} 
+                  disabled={selectedWaitingStudents.length === 0 || actionLoading} 
+                  className="px-5 py-2.5 rounded-xl font-medium bg-slate-900 text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  {actionLoading ? "Đang xử lý..." : "Xếp vào lớp"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   </div>;
 }
