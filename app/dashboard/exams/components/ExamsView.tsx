@@ -73,12 +73,25 @@ export function ExamsView() {
   const [unassignedStudents, setUnassignedStudents] = useState<any[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [filterCourseId, setFilterCourseId] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isSyncing, setIsSyncing] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     fetchExams();
+    fetchCourses();
   }, []);
+
+  const fetchCourses = async () => {
+    try {
+      const { data } = await supabase.from('courses').select('id, name');
+      if (data) setCourses(data);
+    } catch (err) {
+      console.warn("Lỗi đồng bộ courses", err);
+    }
+  };
 
   const fetchExams = async () => {
     setIsSyncing(true);
@@ -184,7 +197,7 @@ export function ExamsView() {
     setSelectedStudentIds([]);
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.from('students').select('id, full_name, phone').is('exam_id', null);
+      const { data, error } = await supabase.from('students').select('id, full_name, phone, course_id, status').is('exam_id', null);
       if (error) {
         alert('Lỗi CSDL: Vui lòng chạy lệnh SQL sau trong Supabase SQL Editor để bật tính năng này: ALTER TABLE public.students ADD COLUMN exam_id UUID REFERENCES public.exams(id) ON DELETE SET NULL;');
         throw error;
@@ -482,16 +495,45 @@ export function ExamsView() {
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto flex-1">
-              <p className="text-sm text-slate-500 mb-4">Chọn các học viên chưa có lịch thi bên dưới để đưa vào đợt thi này.</p>
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+              <p className="text-sm text-slate-500">Chọn các học viên chưa có lịch thi bên dưới để đưa vào đợt thi này.</p>
               
-              {unassignedStudents.length === 0 ? (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <select 
+                  value={filterCourseId} 
+                  onChange={e => setFilterCourseId(e.target.value)}
+                  className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5b21b6] focus:ring-1 focus:ring-[#5b21b6]"
+                >
+                  <option value="all">Tất cả lớp học</option>
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <select 
+                  value={filterStatus} 
+                  onChange={e => setFilterStatus(e.target.value)}
+                  className="w-full sm:w-48 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5b21b6] focus:ring-1 focus:ring-[#5b21b6]"
+                >
+                  <option value="all">Tất cả học viên</option>
+                  <option value="retake">Chỉ Học viên sát hạch lại</option>
+                </select>
+              </div>
+
+              {unassignedStudents.filter(s => {
+                if (filterCourseId !== 'all' && s.course_id !== filterCourseId) return false;
+                if (filterStatus === 'retake' && s.status !== 'Thi lại' && s.status !== 'Sát hạch lại') return false;
+                return true;
+              }).length === 0 ? (
                 <div className="text-center py-8 text-slate-500 bg-slate-50 rounded-xl border border-slate-100">
-                  Tất cả học viên đều đã có lịch thi.
+                  Không tìm thấy học viên nào phù hợp.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {unassignedStudents.map(student => (
+                  {unassignedStudents.filter(s => {
+                    if (filterCourseId !== 'all' && s.course_id !== filterCourseId) return false;
+                    if (filterStatus === 'retake' && s.status !== 'Thi lại' && s.status !== 'Sát hạch lại') return false;
+                    return true;
+                  }).map(student => (
                     <label key={student.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
                       <input 
                         type="checkbox" 
@@ -502,9 +544,12 @@ export function ExamsView() {
                           else setSelectedStudentIds(prev => prev.filter(id => id !== student.id));
                         }}
                       />
-                      <div className="flex flex-col">
+                      <div className="flex flex-col flex-1">
                         <span className="font-bold text-sm text-slate-800">{student.full_name}</span>
-                        <span className="text-xs text-slate-500">{student.phone}</span>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                          <span>{student.phone}</span>
+                          {student.status && <span className="px-1.5 py-0.5 rounded-full bg-slate-100 font-medium">{student.status}</span>}
+                        </div>
                       </div>
                     </label>
                   ))}
