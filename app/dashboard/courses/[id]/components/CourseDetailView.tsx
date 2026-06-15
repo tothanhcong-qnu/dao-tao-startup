@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/browser';
 export function CourseDetailView({ courseId }: { courseId: string }) {
   const [course, setCourse] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +41,7 @@ export function CourseDetailView({ courseId }: { courseId: string }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsImporting(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
       const text = event.target?.result as string;
