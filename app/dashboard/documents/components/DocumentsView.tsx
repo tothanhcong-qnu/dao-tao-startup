@@ -4,16 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Clock, CheckCircle2, AlertCircle, Edit, Trash2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/browser';
 
-const CURRENT_DATE = new Date('2026-06-07');
 
 function getDeadlineCountdown(deadlineStr: string, status: string) {
   if (status === 'Hoàn thành') return { text: 'Hoàn thành', color: 'text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded' };
   
   const deadlineDate = new Date(deadlineStr);
-  const diffTime = deadlineDate.getTime() - CURRENT_DATE.getTime();
+  deadlineDate.setHours(0, 0, 0, 0);
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+  const diffTime = deadlineDate.getTime() - currentDate.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return { text: `Trễ ${Math.abs(diffDays)} ngày`, color: 'text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded' };
+  if (diffDays < 0) return { text: `Quá hạn ${Math.abs(diffDays)} ngày`, color: 'text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded' };
   if (diffDays === 0) return { text: 'Hết hạn hôm nay', color: 'text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded' };
   if (diffDays <= 3) return { text: `Còn ${diffDays} ngày`, color: 'text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded' };
   return { text: `Còn ${diffDays} ngày`, color: 'text-slate-600' };

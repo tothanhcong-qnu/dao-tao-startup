@@ -12,11 +12,13 @@ const mockVehicles = [
   { id: '4', plate: '51H-111.22', type: 'B2 (Số sàn)', regExpiry: '2028-01-05', permitExpiry: '2028-01-05', contractExpiry: '2029-01-05', status: 'Maintenance' },
 ];
 
-const CURRENT_DATE = new Date('2026-06-07');
 
 function getExpiryColor(expiryDateStr: string) {
   const expiryDate = new Date(expiryDateStr);
-  const diffTime = expiryDate.getTime() - CURRENT_DATE.getTime();
+  expiryDate.setHours(0, 0, 0, 0);
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+  const diffTime = expiryDate.getTime() - currentDate.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays <= 15) return 'text-red-600 font-bold bg-red-50 px-2 py-1 rounded';
@@ -26,7 +28,10 @@ function getExpiryColor(expiryDateStr: string) {
 
 function getDaysRemaining(expiryDateStr: string) {
   const expiryDate = new Date(expiryDateStr);
-  const diffTime = expiryDate.getTime() - CURRENT_DATE.getTime();
+  expiryDate.setHours(0, 0, 0, 0);
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+  const diffTime = expiryDate.getTime() - currentDate.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
