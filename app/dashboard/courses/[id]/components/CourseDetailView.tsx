@@ -51,14 +51,25 @@ export function CourseDetailView({ courseId }: { courseId: string }) {
       const newStudents = [];
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',').map(c => c.trim());
-        if (cols.length >= 6) {
+        if (cols.length >= 5) {
+          let dateStr: string | null = cols[3];
+          if (dateStr) {
+            const parsed = new Date(dateStr);
+            if (isNaN(parsed.getTime())) {
+              // If it's not a valid date (e.g. they put "Đang học" here), set to null to avoid SQL errors
+              dateStr = null;
+            }
+          } else {
+            dateStr = null;
+          }
+
           newStudents.push({
-            full_name: cols[0],
-            cid: cols[1],
-            phone: cols[2],
-            enrollment_date: cols[3],
-            status: cols[4],
-            instructor_name: cols[5],
+            full_name: cols[0] || 'Chưa có tên',
+            cid: cols[1] || null,
+            phone: cols[2] || null,
+            enrollment_date: dateStr,
+            status: (cols[4] && cols[4].length > 0) ? cols[4] : 'Đang học',
+            instructor_name: cols[5] || null,
             tuition_paid: cols[6] ? Number(cols[6]) : 0,
             course_id: courseId,
             license_class: course?.class || 'B2',
