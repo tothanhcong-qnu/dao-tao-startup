@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, FileSpreadsheet, Layers, Clock, CalendarCheck2, 
-  CheckCircle2, Users, MapPin, Calendar, Edit, Trash2, ChevronDown, UserPlus, X
+  CheckCircle2, Users, MapPin, Calendar, Edit, Trash2, ChevronDown, UserPlus, X, Filter
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/browser';
+import Link from 'next/link';
 
 const mockExams = [
   {
@@ -390,13 +391,19 @@ export function ExamsView() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2">
-                  {exam.status === 'Sắp diễn ra' && (
-                    <button onClick={() => openAssignModal(exam)} className="w-9 h-9 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 flex items-center justify-center transition-colors" title="Gán học viên">
-                      <UserPlus className="w-4 h-4" />
-                    </button>
-                  )}
-                  <button onClick={() => openEditModal(exam)} className="w-9 h-9 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center transition-colors" title="Chỉnh sửa">
+                <div className="flex gap-2">
+                  <Link 
+                    href={`/dashboard/exams/${exam.id}`}
+                    className="flex-1 flex justify-center items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5b21b6] px-3 py-2 rounded-lg font-bold text-sm transition-colors border border-indigo-100"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Chi tiết / Gán HV
+                  </Link>
+                  <button 
+                    onClick={() => openEditModal(exam)}
+                    className="px-3 py-2 text-slate-500 hover:text-[#5b21b6] hover:bg-indigo-50 border border-slate-200 rounded-lg transition-colors"
+                    title="Sửa đợt thi"
+                  >
                     <Edit className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDelete(exam.id)} className="w-9 h-9 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 border border-red-100 flex items-center justify-center transition-colors" title="Xóa">
