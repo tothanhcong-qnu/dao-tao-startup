@@ -12,18 +12,33 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [loading, setLoading] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setLoading(true); setMessage("");
-    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
-    const result = mode === "register" ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } }) : await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (result.error) { setMessage(result.error.message); return; }
-    if (mode === "register") {
-      if (result.data?.session) {
-        window.location.href = "/dashboard";
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      setLoading(false);
+      setMessage("Lỗi hệ thống: Chưa cấu hình biến môi trường Supabase (NEXT_PUBLIC_SUPABASE_URL). Vui lòng thêm vào Vercel Settings.");
+      return;
+    }
+
+    try {
+      const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`;
+      const result = mode === "register" ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } }) : await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
+      if (result.error) { setMessage(result.error.message); return; }
+      if (mode === "register") {
+        if (result.data?.session) {
+          window.location.href = "/dashboard";
+        } else {
+          setMessage("Đăng ký thành công. Vui lòng kiểm tra email để xác thực (nếu không thấy, hãy kiểm tra mục Thư rác/Spam). Hoặc tắt tính năng 'Confirm email' trong Supabase.");
+        }
       } else {
-        setMessage("Đăng ký thành công. Vui lòng kiểm tra email để xác thực (nếu không thấy, hãy kiểm tra mục Thư rác/Spam). Hoặc tắt tính năng 'Confirm email' trong Supabase.");
+        window.location.href = "/dashboard";
       }
-    } else {
-      window.location.href = "/dashboard";
+    } catch (err: any) {
+      setLoading(false);
+      if (err.message === "Failed to fetch") {
+        setMessage("Lỗi kết nối: Không thể kết nối tới Supabase. Kiểm tra xem dự án Supabase của bạn có bị Tạm ngưng (Paused) hay không, hoặc cấu hình URL bị sai.");
+      } else {
+        setMessage("Lỗi: " + err.message);
+      }
     }
   }
   return (
