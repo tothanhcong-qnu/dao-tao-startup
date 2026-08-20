@@ -133,14 +133,12 @@ export function CoursesView() {
       max_students: Number(fd.get('maxStudents')) || 50,
       status: fd.get('status') as string || 'Mới khai giảng',
       enrolled_students: Number(fd.get('studentsCount')) || 0,
+      theory_test_date: null,
+      practice_test_date: null,
     };
     
     if (fd.get('endDate')) dbPayload.end_date = fd.get('endDate');
     else dbPayload.end_date = null;
-    if (fd.get('theoryTestDate')) dbPayload.theory_test_date = fd.get('theoryTestDate');
-    else dbPayload.theory_test_date = null;
-    if (fd.get('practiceTestDate')) dbPayload.practice_test_date = fd.get('practiceTestDate');
-    else dbPayload.practice_test_date = null;
     if (fd.get('graduationTestDate')) dbPayload.graduation_test_date = fd.get('graduationTestDate');
     else dbPayload.graduation_test_date = null;
 
@@ -237,9 +235,7 @@ export function CoursesView() {
       if (c.status === 'Đã hoàn thành') return;
       
       const dates = [
-        { name: 'KTM Lý thuyết', val: c.theoryTestDate },
-        { name: 'KTM Thực hành', val: c.practiceTestDate },
-        { name: 'Thi Tốt nghiệp', val: c.graduationTestDate },
+        { name: 'KT Hoàn thành khóa đào tạo', val: c.graduationTestDate },
         { name: 'Bế giảng', val: c.endDate }
       ];
 
@@ -436,15 +432,7 @@ export function CoursesView() {
                   <input name="endDate" type="date" defaultValue={editingCourse?.endDate || ''} className="w-full border border-slate-300 focus:border-[#5b21b6] focus:ring-1 focus:ring-[#5b21b6] rounded-lg px-3 py-2 text-sm outline-none transition-all" />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Lịch KTM Lý thuyết</label>
-                  <input name="theoryTestDate" type="date" defaultValue={editingCourse?.theoryTestDate || ''} className="w-full border border-slate-300 focus:border-[#5b21b6] focus:ring-1 focus:ring-[#5b21b6] rounded-lg px-3 py-2 text-sm outline-none transition-all" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Lịch KTM Thực hành</label>
-                  <input name="practiceTestDate" type="date" defaultValue={editingCourse?.practiceTestDate || ''} className="w-full border border-slate-300 focus:border-[#5b21b6] focus:ring-1 focus:ring-[#5b21b6] rounded-lg px-3 py-2 text-sm outline-none transition-all" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Lịch thi Tốt nghiệp</label>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Lịch KT Hoàn thành khóa đào tạo</label>
                   <input name="graduationTestDate" type="date" defaultValue={editingCourse?.graduationTestDate || ''} className="w-full border border-slate-300 focus:border-[#5b21b6] focus:ring-1 focus:ring-[#5b21b6] rounded-lg px-3 py-2 text-sm outline-none transition-all" />
                 </div>
               </div>

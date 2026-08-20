@@ -9,7 +9,7 @@ export async function middleware(request: NextRequest) {
       remove(name: string, options: CookieOptions) { request.cookies.set({ name, value: "", ...options }); response = NextResponse.next({ request: { headers: request.headers } }); response.cookies.set({ name, value: "", ...options }); }
     }
   });
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (request.nextUrl.pathname.startsWith('/dashboard') && !user) { const url = request.nextUrl.clone(); url.pathname = '/login'; return NextResponse.redirect(url); }
   if ((request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register') && user) { const url = request.nextUrl.clone(); url.pathname = '/dashboard'; return NextResponse.redirect(url); }
   return response;

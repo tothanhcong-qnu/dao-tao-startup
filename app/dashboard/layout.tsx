@@ -28,7 +28,6 @@ const sidebarLinks = [
   { href: '/dashboard/vehicles', label: 'Phương tiện', icon: CarFront },
   { href: '/dashboard/documents', label: 'Quản lý công việc', icon: FileTextIcon },
   { href: '/dashboard/finance', label: 'Học phí', icon: CreditCard },
-  { href: '/dashboard/reports', label: 'Kết quả KD', icon: TrendingUp },
   { href: '/dashboard/messages', label: 'BOT Thông báo', icon: MessageSquare },
   { href: '/dashboard/settings', label: 'Cài đặt', icon: Settings },
 ];

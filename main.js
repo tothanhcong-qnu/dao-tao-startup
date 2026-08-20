@@ -18,9 +18,10 @@ app.whenReady().then(() => {
       handle(req, res, parsedUrl);
     });
     
-    server.listen(3000, (err) => {
+    server.listen(0, (err) => {
       if (err) throw err;
-      console.log('> Ready on http://localhost:3000');
+      const port = server.address().port;
+      console.log(`> Ready on http://localhost:${port}`);
       
       mainWindow = new BrowserWindow({
         width: 1280,
@@ -32,11 +33,18 @@ app.whenReady().then(() => {
         autoHideMenuBar: true
       });
       
-      mainWindow.loadURL('http://localhost:3000');
+      mainWindow.loadURL(`http://localhost:${port}`);
     });
+  }).catch(err => {
+    require('fs').writeFileSync(path.join(app.getPath('userData'), 'crash.log'), 'prepare error: ' + err.toString() + err.stack);
+    app.quit();
   });
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+process.on('uncaughtException', (err) => {
+  require('fs').writeFileSync(path.join(app.getPath('userData'), 'crash-uncaught.log'), 'uncaught: ' + err.toString() + err.stack);
 });

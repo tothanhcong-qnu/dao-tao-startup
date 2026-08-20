@@ -19,7 +19,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
 
     try {
-      const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`;
+      const redirectTo = `${typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`;
       const result = mode === "register" ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } }) : await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
       if (result.error) { setMessage(result.error.message); return; }

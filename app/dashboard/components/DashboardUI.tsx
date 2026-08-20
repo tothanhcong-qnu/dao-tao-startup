@@ -55,20 +55,43 @@ export function DashboardUI() {
   }, []);
 
   const fetchData = async () => {
-    const [{ data: sData }, { data: dData }, { data: cData }, { data: iData }, { data: vData }, { data: eData }] = await Promise.all([
-      supabase.from('students').select('*').order('created_at', { ascending: false }),
-      supabase.from('documents').select('*').order('deadline', { ascending: true }),
-      supabase.from('courses').select('*').order('start_date', { ascending: true }),
-      supabase.from('instructors').select('*'),
-      supabase.from('vehicles').select('*'),
-      supabase.from('exams').select('*').order('exam_date', { ascending: true })
-    ]);
-    if (sData) setStudents(sData);
-    if (dData) setDocuments(dData);
-    if (cData) setCourses(cData);
-    if (iData) setInstructors(iData);
-    if (vData) setVehicles(vData);
-    if (eData) setExams(eData);
+    try {
+      const [
+        { data: sData, error: sErr },
+        { data: dData, error: dErr },
+        { data: cData, error: cErr },
+        { data: iData, error: iErr },
+        { data: vData, error: vErr },
+        { data: eData, error: eErr }
+      ] = await Promise.all([
+        supabase.from('students').select('*').order('created_at', { ascending: false }),
+        supabase.from('documents').select('*').order('deadline', { ascending: true }),
+        supabase.from('courses').select('*').order('start_date', { ascending: true }),
+        supabase.from('instructors').select('*'),
+        supabase.from('vehicles').select('*'),
+        supabase.from('exams').select('*').order('exam_date', { ascending: true })
+      ]);
+      
+      if (sErr) console.error("Error fetching students:", sErr);
+      else if (sData) setStudents(sData);
+
+      if (dErr) console.error("Error fetching documents:", dErr);
+      else if (dData) setDocuments(dData);
+
+      if (cErr) console.error("Error fetching courses:", cErr);
+      else if (cData) setCourses(cData);
+
+      if (iErr) console.error("Error fetching instructors:", iErr);
+      else if (iData) setInstructors(iData);
+
+      if (vErr) console.error("Error fetching vehicles:", vErr);
+      else if (vData) setVehicles(vData);
+
+      if (eErr) console.error("Error fetching exams:", eErr);
+      else if (eData) setExams(eData);
+    } catch (error) {
+      console.error("General error fetching dashboard data:", error);
+    }
   };
 
   const currentDate = new Date();
@@ -129,18 +152,39 @@ export function DashboardUI() {
     return { ...doc, diffDays, displayStatus: status, urgent };
   });
 
-  const upcomingAlerts: string[] = [];
+  const upcomingAlerts: {type: 'error' | 'warning', message: string, category: string}[] = [];
   const today = new Date();
   today.setHours(0,0,0,0);
   const in7Days = new Date(today);
   in7Days.setDate(today.getDate() + 7);
 
+  // Add document deadlines to upcomingAlerts
+  documents.forEach(d => {
+    if (d.status === 'Đã hoàn thành') return;
+    if (d.deadline) {
+      const dDate = new Date(d.deadline);
+      dDate.setHours(0, 0, 0, 0);
+      if (dDate >= today && dDate <= in7Days) {
+        const diff = Math.ceil((dDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+        upcomingAlerts.push({ 
+          type: 'warning', 
+          category: 'document', 
+          message: `Công việc "${d.name}" sắp tới hạn sau ${diff} ngày (${new Date(d.deadline).toLocaleDateString('vi-VN')})` 
+        });
+      } else if (dDate < today) {
+        upcomingAlerts.push({ 
+          type: 'error', 
+          category: 'document', 
+          message: `Công việc "${d.name}" ĐÃ QUÁ HẠN (${new Date(d.deadline).toLocaleDateString('vi-VN')})` 
+        });
+      }
+    }
+  });
+
   courses.forEach(c => {
     if (c.status === 'Đã hoàn thành') return;
     const dates = [
-      { name: 'KTM Lý thuyết', val: c.theory_test_date },
-      { name: 'KTM Thực hành', val: c.practice_test_date },
-      { name: 'Thi Tốt nghiệp', val: c.graduation_test_date },
+      { name: 'KT Hoàn thành khóa đào tạo', val: c.graduation_test_date },
       { name: 'Bế giảng', val: c.end_date }
     ];
 
@@ -149,9 +193,9 @@ export function DashboardUI() {
         const dDate = new Date(d.val);
         if (dDate >= today && dDate <= in7Days) {
           const diff = Math.ceil((dDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-          upcomingAlerts.push(`Khóa ${c.name} sắp ${d.name} sau ${diff} ngày nữa (${new Date(d.val).toLocaleDateString('vi-VN')})`);
+          upcomingAlerts.push({ type: 'warning', category: 'course', message: `Khóa ${c.name} sắp ${d.name} sau ${diff} ngày nữa (${new Date(d.val).toLocaleDateString('vi-VN')})` });
         } else if (dDate < today) {
-          upcomingAlerts.push(`Khóa ${c.name} đã quá hạn ${d.name} (${new Date(d.val).toLocaleDateString('vi-VN')})`);
+          upcomingAlerts.push({ type: 'error', category: 'course', message: `Khóa ${c.name} đã quá hạn ${d.name} (${new Date(d.val).toLocaleDateString('vi-VN')})` });
         }
       }
     });
@@ -160,7 +204,7 @@ export function DashboardUI() {
   vehicles.forEach(v => {
     const dates = [
       { name: 'Đăng kiểm', val: v.registration_expiry_date },
-      { name: 'Xe tập lái', val: v.permit_expiry_date },
+      { name: 'Giấy phép Xe tập lái', val: v.permit_expiry_date },
       { name: 'Hợp đồng', val: v.contract_expiry_date }
     ];
     dates.forEach(d => {
@@ -168,9 +212,9 @@ export function DashboardUI() {
         const dDate = new Date(d.val);
         if (dDate >= today && dDate <= in7Days) {
           const diff = Math.ceil((dDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-          upcomingAlerts.push(`Xe biển số ${v.license_plate} sắp hết hạn ${d.name} sau ${diff} ngày (${new Date(d.val).toLocaleDateString('vi-VN')})`);
+          upcomingAlerts.push({ type: 'warning', category: 'vehicle', message: `Xe biển số ${v.license_plate} sắp hết hạn ${d.name} sau ${diff} ngày (${new Date(d.val).toLocaleDateString('vi-VN')})` });
         } else if (dDate < today) {
-          upcomingAlerts.push(`Xe biển số ${v.license_plate} ĐÃ HẾT HẠN ${d.name} (${new Date(d.val).toLocaleDateString('vi-VN')})`);
+          upcomingAlerts.push({ type: 'error', category: 'vehicle', message: `Xe biển số ${v.license_plate} ĐÃ HẾT HẠN ${d.name} (${new Date(d.val).toLocaleDateString('vi-VN')})` });
         }
       }
     });
@@ -179,16 +223,16 @@ export function DashboardUI() {
   instructors.forEach(i => {
     const dates = [
       { name: 'GPLX', val: i.license_expiry_date },
-      { name: 'Giấy CN GV', val: i.certification_expiry_date }
+      { name: 'Giấy CN Giáo viên', val: i.certification_expiry_date }
     ];
     dates.forEach(d => {
       if (d.val) {
         const dDate = new Date(d.val);
         if (dDate >= today && dDate <= in7Days) {
           const diff = Math.ceil((dDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-          upcomingAlerts.push(`Giáo viên ${i.full_name} sắp hết hạn ${d.name} sau ${diff} ngày (${new Date(d.val).toLocaleDateString('vi-VN')})`);
+          upcomingAlerts.push({ type: 'warning', category: 'instructor', message: `Giáo viên ${i.full_name} sắp hết hạn ${d.name} sau ${diff} ngày (${new Date(d.val).toLocaleDateString('vi-VN')})` });
         } else if (dDate < today) {
-          upcomingAlerts.push(`Giáo viên ${i.full_name} ĐÃ HẾT HẠN ${d.name} (${new Date(d.val).toLocaleDateString('vi-VN')})`);
+          upcomingAlerts.push({ type: 'error', category: 'instructor', message: `Giáo viên ${i.full_name} ĐÃ HẾT HẠN ${d.name} (${new Date(d.val).toLocaleDateString('vi-VN')})` });
         }
       }
     });
@@ -253,8 +297,8 @@ export function DashboardUI() {
             <Users className="w-6 h-6" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm text-slate-500 font-medium mb-1">Học viên</span>
-            <span className="text-3xl font-bold text-slate-800">{students.length}</span>
+            <span className="text-sm text-slate-500 font-medium mb-1">HV đang học</span>
+            <span className="text-3xl font-bold text-slate-800">{stats.dangHoc}</span>
           </div>
         </Link>
 
@@ -277,9 +321,9 @@ export function DashboardUI() {
             ) : (
               <ul className="space-y-3">
                 {upcomingAlerts.map((alert, idx) => (
-                  <li key={idx} className="flex items-start gap-3 p-3 bg-amber-50 text-amber-800 rounded-lg border border-amber-100">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" />
-                    <span className="text-sm">{alert}</span>
+                  <li key={idx} className={`flex items-start gap-3 p-3 rounded-lg border ${alert.type === 'error' ? 'bg-red-50 text-red-800 border-red-100' : 'bg-amber-50 text-amber-800 border-amber-100'}`}>
+                    <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${alert.type === 'error' ? 'text-red-500' : 'text-amber-500'}`} />
+                    <span className="text-sm">{alert.message}</span>
                   </li>
                 ))}
               </ul>
@@ -289,13 +333,84 @@ export function DashboardUI() {
 
         {/* Panel Trạng thái Xe tập lái */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
-          <div className="p-5 border-b border-slate-100 flex items-center gap-2">
-            <h3 className="font-bold text-slate-800 text-base">Trạng thái Xe tập lái</h3>
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Car className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-bold text-slate-800 text-base">Trạng thái Xe tập lái</h3>
+            </div>
+            <Link href="/dashboard/vehicles" className="text-xs text-indigo-600 hover:underline font-semibold">
+              Xem tất cả
+            </Link>
           </div>
           <div className="flex-1 p-5 flex flex-col">
-            <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-              Đang cập nhật trạng thái hoạt động của phương tiện.
-            </div>
+            {vehicles.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+                Không có dữ liệu phương tiện.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 text-slate-700 uppercase text-[10px] font-bold border-b border-slate-100">
+                    <tr>
+                      <th className="py-2 px-3">Biển số</th>
+                      <th className="py-2 px-3">Loại xe</th>
+                      <th className="py-2 px-3 text-center">Trạng thái</th>
+                      <th className="py-2 px-3">Cảnh báo giấy tờ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {vehicles.slice(0, 5).map((v) => {
+                      const warnings: string[] = [];
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+
+                      const checkExpiry = (dateStr: string, name: string) => {
+                        if (!dateStr) return;
+                        const d = new Date(dateStr);
+                        d.setHours(0, 0, 0, 0);
+                        const diff = Math.ceil((d.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        if (diff < 0) {
+                          warnings.push(`Hết hạn ${name}`);
+                        } else if (diff <= 30) {
+                          warnings.push(`Sắp hết hạn ${name} (${diff} ngày)`);
+                        }
+                      };
+
+                      checkExpiry(v.registration_expiry_date, "Đăng kiểm");
+                      checkExpiry(v.permit_expiry_date, "Tập lái");
+                      checkExpiry(v.contract_expiry_date, "Hợp đồng");
+
+                      return (
+                        <tr key={v.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-3 font-bold text-slate-800">{v.license_plate}</td>
+                          <td className="py-3 px-3 text-slate-600">{v.vehicle_type}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                              v.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {v.status === 'Active' ? 'Đang hoạt động' : 'Bảo trì'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            {warnings.length === 0 ? (
+                              <span className="text-emerald-600 text-xs font-semibold">Bình thường</span>
+                            ) : (
+                              <div className="flex flex-col gap-0.5">
+                                {warnings.map((w, idx) => (
+                                  <span key={idx} className={`text-[10px] font-medium ${w.startsWith('Hết hạn') ? 'text-red-600' : 'text-amber-600'}`}>
+                                    • {w}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 
