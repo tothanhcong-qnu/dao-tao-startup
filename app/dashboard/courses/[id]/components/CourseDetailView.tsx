@@ -25,8 +25,8 @@ export function CourseDetailView({ courseId }: { courseId: string }) {
   };
 
   const downloadCSVTemplate = () => {
-    const headers = "Họ và Tên,CCCD,Số điện thoại,Ngày đăng ký (YYYY-MM-DD),Trạng thái,Nhà giáo giảng dạy,Học phí đã đóng\n";
-    const sampleRow = "Nguyễn Văn A,079123456789,0901234567,2025-10-10,Đang học,GV. Nguyễn B,5000000\n";
+    const headers = "Họ và Tên,Ngày sinh (YYYY-MM-DD),CCCD,Số điện thoại,Địa chỉ,Hạng bằng,Ngày đăng ký (YYYY-MM-DD),Học phí đã đóng,Trạng thái,Giáo viên,Người giới thiệu\n";
+    const sampleRow = "Nguyễn Văn A,1995-05-20,079123456789,0901234567,123 Đường Lê Lợi Kon Tum,B2,2026-08-20,5000000,Đang học,GV. Nguyễn Văn B,Trần Thị C\n";
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers + sampleRow;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -44,41 +44,68 @@ export function CourseDetailView({ courseId }: { courseId: string }) {
     setIsImporting(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      if (lines.length <= 1) return alert('File CSV trống hoặc không đúng định dạng!');
-      
-      const newStudents = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(c => c.trim());
-        if (cols.length >= 5) {
-          let dateStr: string | null = cols[3];
-          if (dateStr) {
-            const parsed = new Date(dateStr);
-            if (isNaN(parsed.getTime())) {
-              // If it's not a valid date (e.g. they put "Đang học" here), set to null to avoid SQL errors
-              dateStr = null;
-            }
-          } else {
-            dateStr = null;
-          }
-
-          newStudents.push({
-            full_name: cols[0] || 'Chưa có tên',
-            cid: cols[1] || null,
-            phone: cols[2] || null,
-            enrollment_date: dateStr,
-            status: (cols[4] && cols[4].length > 0) ? cols[4] : 'Đang học',
-            instructor_name: cols[5] || null,
-            tuition_paid: cols[6] ? Number(cols[6]) : 0,
-            course_id: courseId,
-            license_class: course?.class || 'B2',
-          });
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        if (lines.length <= 1) {
+          alert('File CSV trống hoặc không đúng định dạng!');
+          setIsImporting(false);
+          return;
         }
-      }
 
-      if (newStudents.length > 0) {
-        try {
+        const parseCSVLine = (line: string) => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result.map(val => val.replace(/^"|"$/g, '').trim());
+        };
+
+        const newStudents = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = parseCSVLine(lines[i]);
+          if (cols.length >= 6) {
+            let dobVal: string | null = cols[1] || null;
+            if (dobVal) {
+              const parsed = new Date(dobVal);
+              if (isNaN(parsed.getTime())) dobVal = null;
+            }
+
+            let enrollDateVal: string | null = cols[6] || null;
+            if (enrollDateVal) {
+              const parsed = new Date(enrollDateVal);
+              if (isNaN(parsed.getTime())) enrollDateVal = null;
+            }
+
+            newStudents.push({
+              full_name: cols[0] || 'Chưa có tên',
+              dob: dobVal,
+              cid: cols[2] || null,
+              phone: cols[3] || null,
+              address: cols[4] || null,
+              license_class: course?.class || cols[5] || 'B2',
+              enroll_date: enrollDateVal,
+              tuition_paid: cols[7] ? Number(cols[7]) : 0,
+              status: cols[8] || 'Đang học',
+              instructor_name: cols[9] || null,
+              referrer_name: cols[10] || null,
+              course_id: courseId,
+            });
+          }
+        }
+
+        if (newStudents.length > 0) {
           const { error } = await supabase.from('students').insert(newStudents);
           if (error) throw error;
           
@@ -86,12 +113,14 @@ export function CourseDetailView({ courseId }: { courseId: string }) {
           
           alert(`Đã nhập thành công ${newStudents.length} học viên!`);
           fetchData();
-        } catch (e: any) {
-          alert("Có lỗi xảy ra: " + e.message);
-        } finally {
-          setIsImporting(false);
-          if (fileInputRef.current) fileInputRef.current.value = '';
+        } else {
+          alert("Không tìm thấy dữ liệu hợp lệ trong file!");
         }
+      } catch (e: any) {
+        alert("Có lỗi xảy ra: " + e.message);
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
     reader.readAsText(file);
