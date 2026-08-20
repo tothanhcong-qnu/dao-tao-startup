@@ -293,7 +293,8 @@ export function StudentsView() {
             dob: s.dob || '',
             cid: s.cid || '',
             address: s.address || '',
-            referrer: s.referrer_name || ''
+            referrer: s.referrer_name || '',
+            courseId: s.course_id || null
           };
         });
         setStudentsList(mapped);
@@ -357,12 +358,23 @@ export function StudentsView() {
         dob: selectedStudentForDetail.dob,
         cid: selectedStudentForDetail.cid,
         address: selectedStudentForDetail.address,
-        referrer_name: selectedStudentForDetail.referrer
+        referrer_name: selectedStudentForDetail.referrer,
+        course_id: selectedStudentForDetail.courseId || null
       }).eq('id', selectedStudentForDetail.id);
       
       if (error) throw error;
       
-      setStudentsList(prev => prev.map(s => s.id === selectedStudentForDetail.id ? {...selectedStudentForDetail, statusColor: getStatusColor(selectedStudentForDetail.status)} : s));
+      // Recount enrolled students for all courses to keep counts accurate
+      const { data: allCourses } = await supabase.from('courses').select('id');
+      if (allCourses) {
+        for (const c of allCourses) {
+          const { data: stCount } = await supabase.from('students').select('id', { count: 'exact', head: true }).eq('course_id', c.id);
+          await supabase.from('courses').update({ enrolled_students: stCount?.length || 0 }).eq('id', c.id);
+        }
+      }
+      
+      await fetchStudents();
+      await fetchCourses();
       setSelectedStudentForDetail(null);
     } catch (error) {
       console.error("Error updating student", error);
@@ -822,6 +834,20 @@ export function StudentsView() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Ngày đăng ký</label>
                   <input type="text" disabled value={new Date(selectedStudentForDetail.enrollDate).toLocaleDateString('vi-VN')} className="w-full border border-slate-300 bg-slate-50 rounded-lg px-3 py-2 text-sm outline-none" />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Khóa học / Lớp</label>
+                  <select 
+                    value={selectedStudentForDetail.courseId || ''} 
+                    onChange={e => setSelectedStudentForDetail({...selectedStudentForDetail, courseId: e.target.value || null})} 
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5b21b6] bg-white"
+                  >
+                    <option value="">-- Chưa xếp lớp --</option>
+                    {courses.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} (Hạng {c.class})</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex flex-col gap-1.5 col-span-2">

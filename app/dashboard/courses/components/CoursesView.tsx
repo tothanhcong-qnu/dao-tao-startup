@@ -184,6 +184,27 @@ export function CoursesView() {
     document.body.removeChild(link);
   };
 
+  const exportToCSV = () => {
+    if (coursesList.length === 0) {
+      alert("Không có dữ liệu khóa học để xuất!");
+      return;
+    }
+
+    const headers = "Tên khóa học,Hạng,Ngày khai giảng,Ngày bế giảng,Lịch KT Hoàn thành khóa đào tạo,Sĩ số hiện tại,Sĩ số tối đa,Trạng thái\n";
+    const rows = coursesList.map(c => {
+      return `"${c.name || ''}","${c.class || ''}","${c.startDate || ''}","${c.endDate || ''}","${c.graduationTestDate || ''}",${c.studentsCount || 0},${c.maxStudents || 50},"${c.status || ''}"`;
+    }).join('\n');
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers + rows;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `danh_sach_khoa_hoc_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -283,6 +304,9 @@ export function CoursesView() {
           </button>
           <button onClick={downloadCSVTemplate} className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-lg font-medium shadow-sm transition-all text-sm">
             <Download className="w-4 h-4" /> Tải CSV mẫu
+          </button>
+          <button onClick={exportToCSV} className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-lg font-medium shadow-sm transition-all text-sm">
+            <Download className="w-4 h-4" /> Xuất CSV
           </button>
           <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-[#5b21b6] hover:bg-[#4c1d95] text-white px-5 py-2.5 rounded-lg font-medium shadow-sm transition-all active:scale-95">
             <Plus className="w-5 h-5" />
