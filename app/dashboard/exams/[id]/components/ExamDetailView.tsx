@@ -485,28 +485,61 @@ export default function ExamDetailView({ examId }: { examId: string }) {
                   </div>
                 ) : (
                   filteredAssigned.map(student => (
-                    <label key={student.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedAssigned.includes(student.id) ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200 hover:border-red-300'}`}>
-                      <input 
-                        type="checkbox" 
-                        checked={selectedAssigned.includes(student.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedAssigned(prev => [...prev, student.id]);
-                          else setSelectedAssigned(prev => prev.filter(id => id !== student.id));
-                        }}
-                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-600"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <span className="font-bold text-sm text-slate-800 truncate">{student.full_name}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600 border border-slate-200">{student.license_class || 'B2'}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                          <span>{student.phone}</span>
-                          <span>•</span>
-                          <span className="truncate">{courses.find(c => c.id === student.course_id)?.name || 'Chưa có lớp'}</span>
+                    <div key={student.id} className={`flex flex-col p-3 rounded-lg border transition-colors ${selectedAssigned.includes(student.id) ? 'bg-red-50/50 border-red-200' : 'bg-white border-slate-200 hover:border-red-300'}`}>
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedAssigned.includes(student.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedAssigned(prev => [...prev, student.id]);
+                            else setSelectedAssigned(prev => prev.filter(id => id !== student.id));
+                          }}
+                          className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-600 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                            <span className="font-bold text-sm text-slate-800 truncate">{student.full_name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600 border border-slate-200">{student.license_class || 'B2'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                            <span>{student.phone}</span>
+                            <span>•</span>
+                            <span className="truncate">{courses.find(c => c.id === student.course_id)?.name || 'Chưa có lớp'}</span>
+                          </div>
                         </div>
                       </div>
-                    </label>
+
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center gap-4 text-xs font-semibold text-slate-600 pl-7">
+                        <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Phần thi:</span>
+                        <label className="flex items-center gap-1 cursor-pointer hover:text-[#5b21b6] select-none">
+                          <input 
+                            type="checkbox" 
+                            checked={student.theory_score !== 'Miễn'} 
+                            onChange={(e) => handleScoreChange(student.id, 'theory_score', e.target.checked ? '' : 'Miễn')}
+                            className="rounded text-[#5b21b6] focus:ring-[#5b21b6] w-3.5 h-3.5 cursor-pointer"
+                          />
+                          Lý thuyết
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer hover:text-[#5b21b6] select-none">
+                          <input 
+                            type="checkbox" 
+                            checked={student.practice_score !== 'Miễn'} 
+                            onChange={(e) => handleScoreChange(student.id, 'practice_score', e.target.checked ? '' : 'Miễn')}
+                            className="rounded text-[#5b21b6] focus:ring-[#5b21b6] w-3.5 h-3.5 cursor-pointer"
+                          />
+                          Sa hình
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer hover:text-[#5b21b6] select-none">
+                          <input 
+                            type="checkbox" 
+                            checked={student.road_score !== 'Miễn'} 
+                            onChange={(e) => handleScoreChange(student.id, 'road_score', e.target.checked ? '' : 'Miễn')}
+                            className="rounded text-[#5b21b6] focus:ring-[#5b21b6] w-3.5 h-3.5 cursor-pointer"
+                          />
+                          Đường trường
+                        </label>
+                      </div>
+                    </div>
                   ))
                 )}
               </div>
