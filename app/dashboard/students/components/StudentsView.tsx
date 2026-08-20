@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Plus, Search, Filter, MoreHorizontal, Edit, Trash2, X, Download, FileSpreadsheet, Eye, Printer, ArrowRight, CheckCircle2, DollarSign, CreditCard, AlertTriangle
 } from 'lucide-react';
@@ -53,6 +53,126 @@ export function StudentsView() {
   const [studentToMoveStep, setStudentToMoveStep] = useState<any>(null);
 
   const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const downloadCSVTemplate = () => {
+    const headers = "Họ và Tên,Ngày sinh (YYYY-MM-DD),CCCD,Số điện thoại,Địa chỉ,Hạng bằng,Ngày đăng ký (YYYY-MM-DD),Học phí đã đóng,Trạng thái,Giáo viên,Người giới thiệu\n";
+    const sampleRow = "Nguyễn Văn A,1995-05-20,079123456789,0901234567,123 Đường Lê Lợi Kon Tum,B2,2026-08-20,5000000,Đang học,GV. Nguyễn Văn B,Trần Thị C\n";
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers + sampleRow;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "mau_nhap_hoc_vien.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsSyncing(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+        if (lines.length <= 1) {
+          alert('File CSV trống hoặc không đúng định dạng!');
+          setIsSyncing(false);
+          return;
+        }
+
+        const parseCSVLine = (line: string) => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result.map(val => val.replace(/^"|"$/g, '').trim());
+        };
+
+        const newStudents = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = parseCSVLine(lines[i]);
+          if (cols.length >= 6) {
+            let dobVal: string | null = cols[1] || null;
+            if (dobVal) {
+              const parsed = new Date(dobVal);
+              if (isNaN(parsed.getTime())) dobVal = null;
+            }
+
+            let enrollDateVal: string | null = cols[6] || null;
+            if (enrollDateVal) {
+              const parsed = new Date(enrollDateVal);
+              if (isNaN(parsed.getTime())) enrollDateVal = null;
+            }
+
+            newStudents.push({
+              full_name: cols[0] || 'Chưa có tên',
+              dob: dobVal,
+              cid: cols[2] || null,
+              phone: cols[3] || null,
+              address: cols[4] || null,
+              license_class: cols[5] || 'B2',
+              enroll_date: enrollDateVal,
+              tuition_paid: cols[7] ? Number(cols[7]) : 0,
+              status: cols[8] || 'Chờ KSK',
+              instructor_name: cols[9] || null,
+              referrer_name: cols[10] || null
+            });
+          }
+        }
+
+        if (newStudents.length > 0) {
+          const { error } = await supabase.from('students').insert(newStudents);
+          if (error) throw error;
+          alert(`Đã nhập thành công ${newStudents.length} học viên!`);
+          fetchStudents();
+        } else {
+          alert("Không tìm thấy dữ liệu hợp lệ trong file!");
+        }
+      } catch (err: any) {
+        alert("Lỗi nhập dữ liệu: " + err.message);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const exportToCSV = () => {
+    if (filteredStudents.length === 0) {
+      alert("Không có dữ liệu học viên để xuất!");
+      return;
+    }
+
+    const headers = "Họ và Tên,Ngày sinh,CCCD,Số điện thoại,Địa chỉ,Hạng bằng,Ngày đăng ký,Học phí đã đóng,Trạng thái,Giáo viên,Người giới thiệu\n";
+    const rows = filteredStudents.map(s => {
+      return `"${s.name || ''}","${s.dob || ''}","${s.cid || ''}","${s.phone || ''}","${s.address || ''}","${s.class || ''}",${s.tuitionPaid || 0},"${s.status || ''}","${s.instructor || ''}","${s.referrer || ''}"`;
+    }).join('\n');
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers + rows;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `danh_sach_hoc_vien_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   
   useEffect(() => {
     fetchStudents();
@@ -249,13 +369,14 @@ export function StudentsView() {
           <p className="text-sm text-slate-500 mt-1">{filteredStudents.length} / {studentsList.length} học viên</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
+          <input type="file" accept=".csv" ref={fileInputRef} className="hidden" onChange={handleImportCSV} />
+          <button onClick={downloadCSVTemplate} className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
             <FileSpreadsheet className="w-4 h-4" /> Tải file mẫu CSV
           </button>
-          <button className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
+          <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
             <FileSpreadsheet className="w-4 h-4" /> Nhập CSV
           </button>
-          <button className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
+          <button onClick={exportToCSV} className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
             <FileSpreadsheet className="w-4 h-4" /> Xuất
           </button>
           <button className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
