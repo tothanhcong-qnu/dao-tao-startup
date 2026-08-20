@@ -95,7 +95,7 @@ export function CourseDetailView({ courseId }: { courseId: string }) {
               phone: cols[3] || null,
               address: cols[4] || null,
               license_class: course?.class || cols[5] || 'B2',
-              enroll_date: enrollDateVal,
+              enrollment_date: enrollDateVal,
               tuition_paid: cols[7] ? Number(cols[7]) : 0,
               status: cols[8] || 'Đang học',
               instructor_name: cols[9] || null,
