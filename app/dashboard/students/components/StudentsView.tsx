@@ -51,6 +51,23 @@ export function StudentsView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<any>(null);
   const [studentToMoveStep, setStudentToMoveStep] = useState<any>(null);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+
+  const filteredStudents = studentsList.filter(student => {
+    const matchStatus = activeStatus === 'Tất cả' || student.status.includes(activeStatus) || student.status === activeStatus;
+    
+    let matchTab = true;
+    if (activeTab === 'Xe máy') {
+      matchTab = ['A1', 'A', 'A2'].includes(student.class);
+    } else if (activeTab === 'Ô tô') {
+      matchTab = ['B1', 'B2', 'B số tự động', 'B số cơ khí', 'C', 'C1'].includes(student.class);
+    }
+    
+    return matchStatus && matchTab;
+  });
 
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -174,8 +191,76 @@ export function StudentsView() {
     document.body.removeChild(link);
   };
   
+  const fetchCourses = async () => {
+    try {
+      const { data, error } = await supabase.from('courses').select('id, name, class').order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setCourses(data);
+    } catch (err) {
+      console.error("Lỗi lấy danh sách khóa học:", err);
+    }
+  };
+
+  const handleAssignToCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCourseId) {
+      alert("Vui lòng chọn một khóa học!");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const { error: sErr } = await supabase
+        .from('students')
+        .update({ course_id: selectedCourseId })
+        .in('id', selectedStudentIds);
+      
+      if (sErr) throw sErr;
+
+      const { data: stCount, error: countErr } = await supabase
+        .from('students')
+        .select('id')
+        .eq('course_id', selectedCourseId);
+      
+      if (!countErr) {
+        await supabase
+          .from('courses')
+          .update({ enrolled_students: stCount.length || 0 })
+          .eq('id', selectedCourseId);
+      }
+
+      alert(`Đã xếp lớp thành công cho ${selectedStudentIds.length} học viên!`);
+      setIsAssignModalOpen(false);
+      setSelectedStudentIds([]);
+      setSelectedCourseId('');
+      fetchStudents();
+    } catch (err: any) {
+      alert("Lỗi khi xếp lớp: " + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+  
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const ids = filteredStudents.map(s => s.id);
+      setSelectedStudentIds(ids);
+    } else {
+      setSelectedStudentIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedStudentIds(prev => [...prev, id]);
+    } else {
+      setSelectedStudentIds(prev => prev.filter(item => item !== id));
+    }
+  };
+  
   useEffect(() => {
     fetchStudents();
+    fetchCourses();
   }, []);
 
   const fetchStudents = async () => {
@@ -326,18 +411,7 @@ export function StudentsView() {
     }
   };
 
-  const filteredStudents = studentsList.filter(student => {
-    const matchStatus = activeStatus === 'Tất cả' || student.status.includes(activeStatus) || student.status === activeStatus;
-    
-    let matchTab = true;
-    if (activeTab === 'Xe máy') {
-      matchTab = ['A1', 'A', 'A2'].includes(student.class);
-    } else if (activeTab === 'Ô tô') {
-      matchTab = ['B1', 'B2', 'B số tự động', 'B số cơ khí', 'C', 'C1'].includes(student.class);
-    }
-    
-    return matchStatus && matchTab;
-  });
+
 
   const calculateStatusFilters = () => {
     const counts: Record<string, number> = { 'Tất cả': studentsList.length };
@@ -382,6 +456,14 @@ export function StudentsView() {
           <button className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm">
             <Printer className="w-4 h-4" /> In
           </button>
+          {selectedStudentIds.length > 0 && (
+            <button 
+              onClick={() => setIsAssignModalOpen(true)}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-all text-sm animate-in fade-in duration-200"
+            >
+              <Users className="w-4 h-4" /> Xếp lớp ({selectedStudentIds.length})
+            </button>
+          )}
           <button 
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 bg-[#5b21b6] hover:bg-[#4c1d95] text-white px-5 py-2 rounded-lg font-medium shadow-sm transition-all text-sm"
@@ -467,7 +549,14 @@ export function StudentsView() {
           <table className="w-full text-sm text-left">
             <thead className="bg-white border-b border-slate-100">
               <tr className="text-xs text-slate-500 uppercase tracking-wider">
-                <th className="px-6 py-4 w-12 text-center"><input type="checkbox" className="rounded border-slate-300" /></th>
+                <th className="px-6 py-4 w-12 text-center">
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-slate-300 cursor-pointer" 
+                    checked={filteredStudents.length > 0 && selectedStudentIds.length === filteredStudents.length}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                  />
+                </th>
                 <th className="px-6 py-4 font-semibold">Họ và Tên</th>
                 <th className="px-6 py-4 font-semibold text-center">Hạng</th>
                 <th className="px-6 py-4 font-semibold text-center">Giáo viên</th>
@@ -482,7 +571,12 @@ export function StudentsView() {
               {filteredStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-slate-50/80 transition-colors group">
                   <td className="px-6 py-4 text-center">
-                    <input type="checkbox" className="rounded border-slate-300" />
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-300 cursor-pointer" 
+                      checked={selectedStudentIds.includes(student.id)}
+                      onChange={(e) => handleSelectOne(student.id, e.target.checked)}
+                    />
                   </td>
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-800">{student.name}</p>
@@ -850,6 +944,76 @@ export function StudentsView() {
                   className="flex-1 px-4 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
                 >
                   {isSyncing ? 'Đang lưu...' : 'Xác nhận nộp'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* 4. Modal Xếp lớp hàng loạt */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center animate-in fade-in backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col scale-100 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                <Users className="w-5 h-5 text-amber-500" />
+                Xếp lớp cho học viên ({selectedStudentIds.length})
+              </h3>
+              <button 
+                onClick={() => { setIsAssignModalOpen(false); setSelectedCourseId(''); }}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAssignToCourse} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Chọn khóa học nhận học viên <span className="text-red-500">*</span></label>
+                <select 
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  className="w-full border border-slate-300 focus:border-[#5b21b6] focus:ring-1 focus:ring-[#5b21b6] rounded-lg px-3 py-2.5 text-sm outline-none transition-all bg-white"
+                  required
+                >
+                  <option value="">-- Chọn khóa học --</option>
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (Hạng {c.class})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 max-h-40 overflow-y-auto">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Học viên đã chọn:</p>
+                <ul className="space-y-1.5">
+                  {selectedStudentIds.map(id => {
+                    const st = studentsList.find(s => s.id === id);
+                    return st ? (
+                      <li key={id} className="text-sm font-semibold text-slate-800 flex justify-between">
+                        <span>• {st.name}</span>
+                        <span className="text-xs text-slate-400 font-normal">{st.phone}</span>
+                      </li>
+                    ) : null;
+                  })}
+                </ul>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100 mt-4">
+                <button 
+                  type="button"
+                  onClick={() => { setIsAssignModalOpen(false); setSelectedCourseId(''); }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSyncing || !selectedCourseId}
+                  className="flex-1 px-4 py-2.5 bg-[#5b21b6] hover:bg-[#4c1d95] text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isSyncing ? 'Đang lưu...' : 'Xác nhận xếp lớp'}
                 </button>
               </div>
             </form>
